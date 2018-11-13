@@ -126,6 +126,7 @@ int main() {
 				char **cmd = l->seq[i];
 				//printf("seq[%d]: ", i);
 				pid_t pid;
+				int child_nb = 0;
 				switch( pid = fork() ) {
 						case 0:
 								execvp(cmd[0], cmd);
@@ -139,7 +140,10 @@ int main() {
 										int status;
 										waitpid(pid, &status, 0);
 								}
-								printf("%d\n", l->bg);
+								else {
+										child_nb++;
+								}
+								printf("%d\n", child_nb);
 								break;
 						}
 				}
