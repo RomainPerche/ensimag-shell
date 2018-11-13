@@ -135,8 +135,11 @@ int main() {
 								break;
 						default:
 						{
-								int status;
-								waitpid(pid, &status, 0);
+								if (l->bg == 0){
+										int status;
+										waitpid(pid, &status, 0);
+								}
+								printf("%d\n", l->bg);
 								break;
 						}
 				}
