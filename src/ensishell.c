@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 
 #include "variante.h"
 #include "readcmd.h"
@@ -36,7 +38,7 @@ int question6_executer(char *line)
 
 	/* Remove this line when using parsecmd as it will free it */
 	free(line);
-	
+
 	return 0;
 }
 
@@ -103,12 +105,12 @@ int main() {
 
 		/* If input stream closed, normal termination */
 		if (!l) {
-		  
+
 			terminate(0);
 		}
-		
 
-		
+
+
 		if (l->err) {
 			/* Syntax error, read another command */
 			printf("error: %s\n", l->err);
@@ -121,12 +123,27 @@ int main() {
 
 		/* Display each command of the pipe */
 		for (i=0; l->seq[i]!=0; i++) {
-			char **cmd = l->seq[i];
-			printf("seq[%d]: ", i);
-                        for (j=0; cmd[j]!=0; j++) {
-                                printf("'%s' ", cmd[j]);
-                        }
-			printf("\n");
+				char **cmd = l->seq[i];
+				//printf("seq[%d]: ", i);
+				pid_t pid;
+				switch( pid = fork() ) {
+						case 0:
+								execvp(cmd[0], cmd);
+								break;
+						case -1:
+								perror("fork:");
+								break;
+						default:
+						{
+								int status;
+								waitpid(pid, &status, 0);
+								break;
+						}
+				}
+      	for (j=0; cmd[j]!=0; j++) {
+        		printf("'%s' ", cmd[j]);
+      	}
+				printf("\n");
 		}
 	}
 
