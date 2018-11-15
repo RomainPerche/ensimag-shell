@@ -32,9 +32,27 @@ struct Cellule {
 		struct Cellule *next;
 };
 
-/*on crée une sentinelle pour que la liste ne soit pas vide à l'initialisation*/
-struct Cellule *sentinelle = NULL;
-struct Cellule *current = NULL;
+
+void print_jobs(struct Cellule *sentinelle) {
+		if (sentinelle == NULL) {
+				printf("No backgound process\n");
+		}
+		else {
+				struct Cellule *current = sentinelle;
+				int i = 1;
+				while (current != NULL) {
+						printf("Process %d : %s \n", i, current->nom);
+						printf("PID : %d \n", current->pid);
+						int status;
+						if (!waitpid(current->pid, &status, WNOHANG)) {
+								printf("Il se passe des choses.\n");
+						}
+						printf("\n");
+						i++;
+						current = current->next;
+				}
+		}
+}
 
 
 #if USE_GUILE == 1
@@ -83,10 +101,14 @@ int main() {
         scm_c_define_gsubr("executer", 1, 0, 0, executer_wrapper);
 #endif
 
+	/*on crée une sentinelle pour que la liste ne soit pas vide à l'initialisation*/
+	struct Cellule *sentinelle = NULL;
+	struct Cellule *current = NULL;
+	int child_nb = 0;
+
 	while (1) {
 		struct cmdline *l;
 		char *line=0;
-		int i, j;
 		char *prompt = "ensishell>";
 
 		/* Readline use some internal memory structure that
@@ -134,14 +156,51 @@ int main() {
 		if (l->out) printf("out: %s\n", l->out);
 		if (l->bg) printf("background (&)\n");
 
-		/* Display each command of the pipe */
-		for (i=0; l->seq[i]!=0; i++) {
-				char **cmd = l->seq[i];
-				//printf("seq[%d]: ", i);
+
+		char **cmd = l->seq[0];
+
+/*
+		if (l->out != NULL) {
+				int tuyau[2];
+				int fd = open(l->out, O_WRONLY);
+				if ((res1=fork()) == 0) {
+					dup2(tuyau[0], fd);
+					close(tuyau[1]);
+					close(tuyau[0]);
+					execvp(cmd[0], cmd);
+			}
+		}
+*/
+
+		if (l->seq[1] != 0) {
+				//Pipe à faire.
+				char **cmd2 = l->seq[1];
+				int res0;
+				int res1;
+				int tuyau[2];
+				//Processus pour le pipe.
+				if ((res0=fork()) == 0) {
+						pipe(tuyau);
+						//Processus pour l'exécution des commandes.
+						if ((res1=fork()) == 0) {
+							dup2(tuyau[0], 0);
+							close(tuyau[1]);
+							close(tuyau[0]);
+							execvp(cmd2[0], cmd2);
+						}
+						dup2(tuyau[1], 1);
+						close(tuyau[0]);
+						close(tuyau[1]);
+						execvp(cmd[0], cmd);
+				}
+		}
+		else {
 				pid_t pid;
-				int child_nb = 0;
 				switch( pid = fork() ) {
 						case 0:
+								if (strncmp(cmd[0], "jobs", 20) == 0) {
+										print_jobs(sentinelle);
+								}
 								execvp(cmd[0], cmd);
 								break;
 						case -1:
@@ -149,15 +208,17 @@ int main() {
 								break;
 						default:
 						{
-								if (l->bg == 0){
+								if (l->bg == 0) {
 										int status;
 										waitpid(pid, &status, 0);
 								}
 								else {
+										//Background process.
 										child_nb++;
+										//Counts number of background processes.
 										if (sentinelle == NULL) {
 												sentinelle = malloc(sizeof(struct Cellule));
-												sentinelle->nom = cmd[0];
+												strcpy(sentinelle->nom, cmd[0]);
 												sentinelle->pid = pid;
 												sentinelle->next = NULL;
 												current = malloc(sizeof(struct Cellule));
@@ -165,22 +226,16 @@ int main() {
 										}
 										else {
 												struct Cellule *new = malloc(sizeof(struct Cellule));
-												new->nom = cmd[0];
+												strcpy(new->nom, cmd[0]);
 												new->pid = pid;
 												new->next = NULL;
 												current->next = new;
 												current = new;
 										}
 								}
-								printf("%d\n", child_nb);
 								break;
 						}
 				}
-      	for (j=0; cmd[j]!=0; j++) {
-        		printf("'%s' ", cmd[j]);
-      	}
-				printf("\n");
 		}
 	}
-
 }
