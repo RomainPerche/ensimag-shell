@@ -24,6 +24,19 @@
  * lines in CMakeLists.txt.
  */
 
+
+/*struct cellule contenant les process en background*/
+struct Cellule {
+		char* nom;
+		pid_t pid;
+		struct Cellule *next;
+};
+
+/*on crée une sentinelle pour que la liste ne soit pas vide à l'initialisation*/
+struct Cellule *sentinelle = NULL;
+struct Cellule *current = NULL;
+
+
 #if USE_GUILE == 1
 #include <libguile.h>
 
@@ -142,6 +155,22 @@ int main() {
 								}
 								else {
 										child_nb++;
+										if (sentinelle == NULL) {
+												sentinelle = malloc(sizeof(struct Cellule));
+												sentinelle->nom = cmd[0];
+												sentinelle->pid = pid;
+												sentinelle->next = NULL;
+												current = malloc(sizeof(struct Cellule));
+												current = sentinelle;
+										}
+										else {
+												struct Cellule *new = malloc(sizeof(struct Cellule));
+												new->nom = cmd[0];
+												new->pid = pid;
+												new->next = NULL;
+												current->next = new;
+												current = new;
+										}
 								}
 								printf("%d\n", child_nb);
 								break;
